@@ -1,0 +1,9 @@
+{
+  "brandName": "easyRest",
+  "footer": "easyRest Second Screen",
+  "ad": {
+    "mode": "image", 
+    "width": 360, 
+    "imageUrl": "https://via.placeholder.com/320x640?text=Reklam"
+  }
+}

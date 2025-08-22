@@ -1,18 +1,16 @@
 {
   "name": "easyrest-second-screen",
   "version": "0.1.0",
-  "description": "Electron tabanlı ikinci ekran (müşteri görünümü) uygulaması",
+  "description": "Electron tabanlı ikinci ekran (müşteri görünümü)",
   "main": "main.js",
-  "author": "easyRest",
-  "license": "MIT",
   "private": true,
   "scripts": {
     "start": "electron .",
+    "debug": "electron . --debug",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
   "dependencies": {
-    "electron-store": "^8.2.0",
     "express": "^4.19.2"
   },
   "devDependencies": {
@@ -22,23 +20,15 @@
   "build": {
     "appId": "com.easyrest.secondscreen",
     "productName": "easyRest Second Screen",
-    "files": [
-      "**/*"
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
+    "files": ["**/*"],
+    "win": { "target": ["nsis"] },
     "nsis": {
       "oneClick": true,
       "perMachine": true,
       "allowElevation": true,
-      "allowToChangeInstallationDirectory": false,
       "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
   }
 }
-

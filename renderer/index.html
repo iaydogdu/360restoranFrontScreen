@@ -1,50 +1,155 @@
 <!doctype html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>İkinci Ekran</title>
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Sipariş Özeti</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      html, body { margin:0; padding:0; width:100%; height:100%; background:#0b0b0f; color:#f3f4f6; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",sans-serif; }
-      .wrap { display:flex; flex-direction:column; width:100%; height:100%; }
-      .header { padding:16px; font-weight:700; background:#111827; border-bottom:1px solid #1f2937; }
-      .content { flex:1; padding:20px; overflow:auto; }
-      .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:16px; margin-bottom:12px; }
-      .total { font-size:28px; font-weight:800; color:#22c55e; }
-      .muted { color:#9ca3af; }
+      html,body{width:100%;height:100%}
+      .custom-scrollbar::-webkit-scrollbar{width:8px}
+      .custom-scrollbar::-webkit-scrollbar-track{background:rgba(128,90,213,.2);border-radius:10px}
+      .custom-scrollbar::-webkit-scrollbar-thumb{background:rgba(168,130,253,.5);border-radius:10px}
     </style>
   </head>
-  <body>
-    <div class="wrap">
-      <div class="header">Müşteri Görünümü</div>
-      <div class="content">
-        <div id="status" class="muted">Bekleniyor…</div>
-        <div id="orderNo" class="card muted"></div>
-        <div id="items"></div>
-        <div id="total" class="card total"></div>
+  <body class="h-full w-full bg-purple-900 text-white">
+    <div class="h-full w-full flex flex-col p-4">
+      <div class="text-center mb-4 p-2">
+        <h2 class="text-2xl font-bold tracking-wide">Sipariş Özeti</h2>
+        <div id="orderNo" class="text-sm text-yellow-300 mt-1"></div>
+      </div>
+      <div id="items" class="flex-1 overflow-y-auto custom-scrollbar pr-2" style="padding-bottom:80px;"></div>
+      <div class="pt-4 mt-2">
+        <div class="flex justify-between items-center">
+          <span class="font-bold text-xl">Toplam</span>
+          <span id="total" class="text-2xl font-bold text-yellow-400"></span>
+        </div>
+        <div class="flex justify-end mt-4">
+          <img id="logo" src="" alt="Logo" class="h-8 hidden cursor-pointer">
+        </div>
       </div>
     </div>
+
+    <div id="gpOverlay" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 items-center justify-center">
+      <div class="bg-white text-gray-900 rounded-lg shadow-lg p-8 flex flex-col items-center relative min-w-[320px] max-w-[90vw]">
+        <h3 class="text-xl font-bold mb-4 text-purple-700">GastroPay ile Ödeme</h3>
+        <div id="gpCode" class="mb-4 hidden flex-col items-center">
+          <span class="text-lg font-semibold">Kodu Göster</span>
+          <span id="gpCodeText" class="text-3xl font-mono text-purple-700 tracking-widest mt-2"></span>
+        </div>
+        <div id="gpQr" class="mb-4 hidden flex-col items-center">
+          <span class="text-lg font-semibold">QR Kodunu Okut</span>
+          <img id="gpQrImg" class="mt-2 rounded border border-purple-200 shadow" style="width:200px;height:200px;"/>
+        </div>
+        <span id="gpClose" class="absolute top-2 right-4 text-gray-400 cursor-pointer text-2xl">&times;</span>
+      </div>
+    </div>
+
     <script>
       const { ipcRenderer } = require('electron');
-      function render(payload){
-        const items = Array.isArray(payload.orderItems) ? payload.orderItems : [];
-        document.getElementById('status').textContent = payload.isCompleted ? 'Tamamlandı' : 'Aktif Sipariş';
-        document.getElementById('orderNo').textContent = payload.orderNo ? ('Sipariş No: ' + payload.orderNo) : '';
-        const itemsDiv = document.getElementById('items');
-        itemsDiv.innerHTML = '';
-        items.forEach(it => {
-          const el = document.createElement('div');
-          el.className = 'card';
-          el.textContent = `${it.miktar || 1}x ${it.urunAdi || ''}`;
-          itemsDiv.appendChild(el);
+
+      function t(node, cls, txt){ const el=document.createElement(node); if(cls) el.className=cls; if(txt!==undefined) el.textContent=txt; return el; }
+      function renderSubDetails(root, details){
+        if(!Array.isArray(details)) return;
+        const ul=t('ul','list-disc list-inside space-y-1 ml-6 mt-1');
+        details.forEach(d=>{
+          if(d?.selected){
+            const li=t('li','ml-2'); const span=t('span', (d.istenmeyen===false?'line-through text-gray-100':'text-white text-sm'),
+              (d.itemDetails?.urunAdi) || ''); 
+            if(typeof d.ekFiyat==='number' && d.ekFiyat>0) span.appendChild(t('span','text-green-400 ml-1','+'+d.ekFiyat.toFixed(2)+' ₺'));
+            li.appendChild(span); ul.appendChild(li);
+          }
         });
-        document.getElementById('total').textContent = typeof payload.totalAmount === 'number' ? `Toplam: ${payload.totalAmount.toFixed(2)} ₺` : '';
+        if(ul.childElementCount>0) root.appendChild(ul);
       }
-      ipcRenderer.on('data:update', (_ev, data) => render(data||{}));
-      ipcRenderer.on('data:clear', (_ev, data) => render(data||{isCompleted:true, orderItems:[], totalAmount:0}));
+      function renderUrunItems(root, urunItems){
+        if(!Array.isArray(urunItems)) return;
+        const ul=t('ul','list-disc list-inside space-y-1 ml-6 mt-1');
+        urunItems.forEach(ui=>{
+          (ui.items||[]).forEach(ud=>{
+            if(ud?.selected){
+              const li=t('li','ml-2'); const span=t('span',(ud.istenmeyen===false?'line-through text-gray-100':'text-white text-sm'),
+                (ud.itemId?.urunAdi) || '');
+              if(typeof ud.ekFiyat==='number' && ud.ekFiyat>0) span.appendChild(t('span','text-green-400 ml-1','+'+ud.ekFiyat.toFixed(2)+' ₺'));
+              li.appendChild(span); ul.appendChild(li);
+            }
+          });
+        });
+        if(ul.childElementCount>0) root.appendChild(ul);
+      }
+      function renderItems(container, items){
+        container.innerHTML='';
+        (items||[]).forEach(item=>{
+          const wrap=t('div','mb-4');
+          const head=t('div','flex items-center justify-between mb-2');
+          const left=t('div','flex items-center gap-2'); left.appendChild(t('span','text-white font-bold',`${item.miktar||1} x ${item.urunAdi||''}`));
+          const right=t('span','text-yellow-400 font-bold',(((+item.vergiliFiyat||0)*(item.miktar||1)).toFixed(2)+' ₺'));
+          head.appendChild(left); head.appendChild(right); wrap.appendChild(head);
+
+          if(Array.isArray(item.items)&&item.items.length>0){
+            const ul=t('ul','list-disc list-inside space-y-1');
+            item.items.forEach(sub=>{
+              if(sub?.selected){
+                const li=t('li','ml-2'); const span=t('span',(sub.istenmeyen===false?'line-through text-gray-100':'text-white'),
+                  (sub.itemDetails?.urunAdi)||'');
+                if(typeof sub.ekFiyat==='number' && sub.ekFiyat>0) span.appendChild(t('span','text-green-400 ml-1','+'+sub.ekFiyat.toFixed(2)+' ₺'));
+                li.appendChild(span);
+                if(Array.isArray(sub.itemDetails?.items)) renderSubDetails(li, sub.itemDetails.items);
+                if(Array.isArray(sub.itemDetails?.urunItems)) renderUrunItems(li, sub.itemDetails.urunItems);
+                ul.appendChild(li);
+              }
+            });
+            wrap.appendChild(ul);
+          }
+          container.appendChild(wrap);
+        });
+      }
+      function adoptCss(payload){
+        if (Array.isArray(payload.cssUrls)) payload.cssUrls.forEach(u=>{
+          if(!u) return; if ([...document.querySelectorAll('link[rel="stylesheet"]')].some(l=>l.href===u)) return;
+          const link=document.createElement('link'); link.rel='stylesheet'; link.href=u; link.crossOrigin='anonymous'; document.head.appendChild(link);
+        });
+        if (Array.isArray(payload.inlineStyles)) payload.inlineStyles.forEach(tk=>{
+          if(!tk) return; const st=document.createElement('style'); st.textContent=tk; document.head.appendChild(st);
+        });
+        if (payload.htmlClasses) document.documentElement.className=payload.htmlClasses;
+        if (payload.bodyClasses) document.body.className=payload.bodyClasses+' bg-purple-900 text-white';
+      }
+      function render(payload){
+        adoptCss(payload);
+        document.getElementById('orderNo').textContent = payload.orderNo ? ('Sipariş No: '+payload.orderNo) : '';
+        document.getElementById('total').textContent = typeof payload.totalAmount==='number' ? (payload.totalAmount.toFixed(2)+' ₺') : '';
+        const logo=document.getElementById('logo'); if(payload.logoUrl){ logo.src=payload.logoUrl; logo.classList.remove('hidden'); }
+        renderItems(document.getElementById('items'), payload.orderItems||[]);
+        const ov=document.getElementById('gpOverlay'); const gpCode=document.getElementById('gpCode'); const gpQr=document.getElementById('gpQr');
+        if(payload.gastroPayCodeToken || payload.gastroPayQrToken){
+          ov.classList.remove('hidden'); ov.classList.add('flex');
+          if(payload.gastroPayCodeToken){ gpCode.classList.remove('hidden'); document.getElementById('gpCodeText').textContent=payload.gastroPayCodeToken; }
+          if(payload.gastroPayQrToken){ gpQr.classList.remove('hidden'); document.getElementById('gpQrImg').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+payload.gastroPayQrToken; }
+        }else{ ov.classList.add('hidden'); ov.classList.remove('flex'); gpCode.classList.add('hidden'); gpQr.classList.add('hidden'); }
+      }
+      ipcRenderer.on('data:update', (_e,d)=>render(d||{}));
+      ipcRenderer.on('data:clear', (_e,d)=>render(d||{isCompleted:true,orderItems:[],totalAmount:0}));
+      document.getElementById('gpClose').addEventListener('click',()=>{ const ov=document.getElementById('gpOverlay'); ov.classList.add('hidden'); ov.classList.remove('flex'); });
+      
+      // Logo'ya 5 kere tıklama ile uygulamayı kapat
+      let logoClickCount = 0;
+      let logoClickTimer = null;
+      document.getElementById('logo').addEventListener('click', () => {
+        logoClickCount++;
+        if (logoClickTimer) clearTimeout(logoClickTimer);
+        
+        if (logoClickCount >= 5) {
+          // 5 kere tıklandı - uygulamayı kapat
+          ipcRenderer.send('app:quit');
+        } else {
+          // 2 saniye sonra sayacı sıfırla
+          logoClickTimer = setTimeout(() => {
+            logoClickCount = 0;
+          }, 2000);
+        }
+      });
     </script>
   </body>
-  </html>
-
-
+</html>
