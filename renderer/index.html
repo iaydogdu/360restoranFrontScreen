@@ -19,6 +19,12 @@
         <h2 class="text-2xl font-bold tracking-wide">Sipariş Özeti</h2>
         <div id="orderNo" class="text-sm text-yellow-300 mt-1"></div>
       </div>
+      <!-- Arka plan resmi (sipariş yokken ortada) -->
+      <div id="arkaPlanContainer" class="hidden flex-1 flex items-center justify-center">
+        <img id="arkaPlanResmi" src="" alt="Arka Plan" class="max-w-full max-h-full object-contain rounded-lg shadow-lg">
+      </div>
+      
+      <!-- Sipariş listesi (sipariş varken) -->
       <div id="items" class="flex-1 overflow-y-auto custom-scrollbar pr-2" style="padding-bottom:80px;"></div>
       <div class="pt-4 mt-2">
         <div class="flex justify-between items-center">
@@ -117,11 +123,35 @@
         if (payload.bodyClasses) document.body.className=payload.bodyClasses+' bg-purple-900 text-white';
       }
       function render(payload){
+        console.log('🖼️ Render çağrıldı, payload:', payload);
+        console.log('🖼️ arkaPlanResmi:', payload.arkaPlanResmi);
+        console.log('🖼️ orderItems uzunluk:', payload.orderItems?.length || 0);
+        
         adoptCss(payload);
         document.getElementById('orderNo').textContent = payload.orderNo ? ('Sipariş No: '+payload.orderNo) : '';
         document.getElementById('total').textContent = typeof payload.totalAmount==='number' ? (payload.totalAmount.toFixed(2)+' ₺') : '';
         const logo=document.getElementById('logo'); if(payload.logoUrl){ logo.src=payload.logoUrl; logo.classList.remove('hidden'); }
-        renderItems(document.getElementById('items'), payload.orderItems||[]);
+        
+        // Arka plan resmi kontrolü
+        const arkaPlanContainer = document.getElementById('arkaPlanContainer');
+        const arkaPlanImg = document.getElementById('arkaPlanResmi');
+        const itemsContainer = document.getElementById('items');
+        const hasOrders = Array.isArray(payload.orderItems) && payload.orderItems.length > 0;
+        
+        if (payload.arkaPlanResmi && !hasOrders) {
+          // Sipariş yok + arka plan resmi var = resmi ortada göster
+          console.log('🖼️ Arka plan resmi gösteriliyor:', payload.arkaPlanResmi);
+          arkaPlanImg.src = payload.arkaPlanResmi;
+          arkaPlanContainer.classList.remove('hidden');
+          itemsContainer.classList.add('hidden');
+        } else {
+          // Sipariş var veya arka plan resmi yok = sipariş listesini göster
+          console.log('🖼️ Sipariş listesi gösteriliyor. Arka plan:', !!payload.arkaPlanResmi, 'Sipariş var:', hasOrders);
+          arkaPlanContainer.classList.add('hidden');
+          itemsContainer.classList.remove('hidden');
+        }
+        
+        renderItems(itemsContainer, payload.orderItems||[]);
         const ov=document.getElementById('gpOverlay'); const gpCode=document.getElementById('gpCode'); const gpQr=document.getElementById('gpQr');
         if(payload.gastroPayCodeToken || payload.gastroPayQrToken){
           ov.classList.remove('hidden'); ov.classList.add('flex');
