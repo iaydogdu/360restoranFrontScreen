@@ -8,14 +8,22 @@ let server = null;
 const HTTP_PORT = process.env.SECOND_SCREEN_PORT || 37251;
 
 // AutoUpdater ayarları
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 if (!isDev) {
   // GitHub Releases için update server URL'i
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: 'iaydogdu',
-    repo: '360restoranFrontScreen'
-  });
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'iaydogdu',
+      repo: '360restoranFrontScreen',
+      private: false
+    });
+    console.log('[AutoUpdater] Feed URL ayarlandı: GitHub Releases');
+  } catch (error) {
+    console.log('[AutoUpdater] setFeedURL hatası:', error);
+  }
+} else {
+  console.log('[AutoUpdater] Development modunda, güncelleme kontrolü devre dışı');
 }
 
 // AutoUpdater event handlers
