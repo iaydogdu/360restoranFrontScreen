@@ -14,6 +14,16 @@
     </style>
   </head>
   <body class="h-full w-full bg-purple-900 text-white">
+    <!-- Update Bildirimi -->
+    <div id="updateNotification" class="hidden fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+        </svg>
+        <span id="updateMessage">Güncelleme mevcut!</span>
+      </div>
+    </div>
+
     <div class="h-full w-full flex flex-col p-4">
       <div class="text-center mb-4 p-2">
         <h2 class="text-2xl font-bold tracking-wide">Sipariş Özeti</h2>
@@ -159,6 +169,47 @@
           if(payload.gastroPayQrToken){ gpQr.classList.remove('hidden'); document.getElementById('gpQrImg').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+payload.gastroPayQrToken; }
         }else{ ov.classList.add('hidden'); ov.classList.remove('flex'); gpCode.classList.add('hidden'); gpQr.classList.add('hidden'); }
       }
+      
+      // Update bildirimi fonksiyonları
+      function showUpdateNotification(message, type = 'info') {
+        const notification = document.getElementById('updateNotification');
+        const messageEl = document.getElementById('updateMessage');
+        
+        messageEl.textContent = message;
+        
+        // Renk ayarı
+        notification.className = notification.className.replace(/bg-\w+-\d+/, '');
+        if (type === 'success') {
+          notification.classList.add('bg-green-600');
+        } else if (type === 'warning') {
+          notification.classList.add('bg-yellow-600');
+        } else if (type === 'error') {
+          notification.classList.add('bg-red-600');
+        } else {
+          notification.classList.add('bg-blue-600');
+        }
+        
+        notification.classList.remove('hidden');
+        
+        // 5 saniye sonra otomatik gizle
+        setTimeout(() => {
+          notification.classList.add('hidden');
+        }, 5000);
+      }
+      
+      // Update event listeners
+      ipcRenderer.on('update-available', (event, info) => {
+        showUpdateNotification(`Yeni sürüm (${info.version}) indiriliyor...`, 'info');
+      });
+      
+      ipcRenderer.on('update-downloaded', () => {
+        showUpdateNotification('Güncelleme tamamlandı! 3 saniye sonra yeniden başlayacak...', 'success');
+      });
+      
+      ipcRenderer.on('update-error', (event, error) => {
+        showUpdateNotification('Güncelleme hatası: ' + error.message, 'error');
+      });
+      
       ipcRenderer.on('data:update', (_e,d)=>render(d||{}));
       ipcRenderer.on('data:clear', (_e,d)=>render(d||{isCompleted:true,orderItems:[],totalAmount:0}));
       document.getElementById('gpClose').addEventListener('click',()=>{ const ov=document.getElementById('gpOverlay'); ov.classList.add('hidden'); ov.classList.remove('flex'); });

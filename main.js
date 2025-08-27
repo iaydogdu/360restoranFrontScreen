@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, autoUpdater, dialog } = require('electron');
 const path = require('path');
 const express = require('express');
 
@@ -6,6 +6,63 @@ let win = null;
 let server = null;
 
 const HTTP_PORT = process.env.SECOND_SCREEN_PORT || 37251;
+
+// AutoUpdater ayarları
+const isDev = process.env.NODE_ENV === 'development';
+if (!isDev) {
+  // GitHub Releases için update server URL'i
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'iaydogdu',
+    repo: '360restoranFrontScreen'
+  });
+}
+
+// AutoUpdater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('[AutoUpdater] Güncelleme kontrol ediliyor...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('[AutoUpdater] Güncelleme mevcut:', info.version, '- Otomatik indiriliyor...');
+  // Renderer'a event gönder (sadece bildirim için)
+  if (win && win.webContents) {
+    win.webContents.send('update-available', info);
+  }
+});
+
+autoUpdater.on('update-not-available', () => {
+  console.log('[AutoUpdater] Güncelleme yok, son sürüm kullanılıyor.');
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('[AutoUpdater] Hata:', err);
+  // Renderer'a hata event'i gönder
+  if (win && win.webContents) {
+    win.webContents.send('update-error', err);
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = `İndirme hızı: ${progressObj.bytesPerSecond}`;
+  log_message += ` - İndirilen ${progressObj.percent}%`;
+  log_message += ` (${progressObj.transferred}/${progressObj.total})`;
+  console.log('[AutoUpdater]', log_message);
+});
+
+autoUpdater.on('update-downloaded', () => {
+  console.log('[AutoUpdater] Güncelleme indirildi! 3 saniye sonra otomatik yeniden başlatılacak...');
+  // Renderer'a event gönder (bildirim için)
+  if (win && win.webContents) {
+    win.webContents.send('update-downloaded');
+  }
+  
+  // 3 saniye bekle ve otomatik yeniden başlat
+  setTimeout(() => {
+    console.log('[AutoUpdater] Uygulama yeniden başlatılıyor...');
+    autoUpdater.quitAndInstall();
+  }, 3000);
+});
 
 function createWindow() {
   const displays = screen.getAllDisplays();
@@ -65,7 +122,24 @@ ipcMain.on('app:quit', () => {
   app.quit();
 });
 
-app.whenReady().then(() => { createWindow(); createHttpServer(); });
+app.whenReady().then(() => { 
+  createWindow(); 
+  createHttpServer(); 
+  
+  // Uygulama başladığında güncellemeleri kontrol et (sadece production'da)
+  if (!isDev) {
+    // 3 saniye sonra güncelleme kontrolü yap
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, 3000);
+    
+    // Her 10 dakikada bir güncelleme kontrol et (daha sık kontrol)
+    setInterval(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, 10 * 60 * 1000); // 10 dakika
+  }
+});
+
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('will-quit', () => { try { server?.close(); } catch (_) {} });

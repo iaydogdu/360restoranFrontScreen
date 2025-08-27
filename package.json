@@ -8,7 +8,9 @@
     "start": "electron .",
     "debug": "electron . --debug",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "publish": "electron-builder --publish=always",
+    "draft": "electron-builder --publish=never"
   },
   "dependencies": {
     "express": "^4.19.2"
@@ -21,7 +23,10 @@
     "appId": "com.easyrest.secondscreen",
     "productName": "easyRest Second Screen",
     "files": ["**/*"],
-    "win": { "target": ["nsis"] },
+    "win": { 
+      "target": ["nsis"],
+      "publisherName": "easyRest"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": true,
@@ -29,6 +34,11 @@
       "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "iaydogdu",
+      "repo": "360restoranFrontScreen"
     }
   }
 }
