@@ -1,6 +1,6 @@
 {
   "name": "easyrest-second-screen",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Electron tabanlı ikinci ekran (müşteri görünümü)",
   "main": "main.js",
   "private": true,
@@ -22,9 +22,13 @@
   "build": {
     "appId": "com.easyrest.secondscreen",
     "productName": "easyRest Second Screen",
-    "files": ["**/*"],
-    "win": { 
-      "target": ["nsis"],
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
       "publisherName": "easyRest"
     },
     "nsis": {
